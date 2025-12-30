@@ -1,6 +1,7 @@
 # Server Resource Monitor
 
 这是一个轻量级的服务器资源监控面板，专为 GPU型服务器 设计，重点监控 GPU 性能。
+本项目完全基于VibeCoding完成;)
 
 ## 功能
 
@@ -23,7 +24,7 @@ pip install -r requirements.txt
 ### 一键运行
 
 ```bash
-bash run.sh
+bash run.sh 8000
 ```
 
 ### 前台运行 (测试用)
