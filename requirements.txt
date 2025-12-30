@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+psutil
+pynvml
+jinja2
+websockets

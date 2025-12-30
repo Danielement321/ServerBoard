@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [v-cloak] { display: none; }
+        .card { @apply bg-white rounded-lg shadow-md p-6 transition-all duration-300 hover:shadow-lg; }
+        .dark-mode { @apply bg-gray-900 text-white; }
+        .dark-mode .card { @apply bg-gray-800 text-white; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen font-sans text-sm">
+    <div id="app" v-cloak class="container mx-auto px-2 py-4">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-server text-xl text-blue-600"></i>
+                <h1 class="text-lg font-bold">Server Monitor</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium" 
+                      :class="connected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                    <i class="fas fa-circle text-[8px] mr-1"></i> {{ connected ? 'Live' : 'Offline' }}
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            
+            <!-- Left Column: Resources (GPU, CPU, Mem, Disk) -->
+            <div class="lg:col-span-7 space-y-4">
+                
+                <!-- GPU Resources Card -->
+                <div v-if="stats.gpus && stats.gpus.length > 0" class="card p-4">
+                    <h3 class="font-bold text-gray-600 mb-3 flex items-center gap-2">
+                        <i class="fas fa-gamepad"></i> GPU 资源
+                    </h3>
+                    
+                    <div v-for="gpu in stats.gpus" :key="gpu.id" class="mb-4 last:mb-0 border-b last:border-0 pb-4 last:pb-0 border-gray-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-sm">{{ gpu.name }} <span class="text-xs text-gray-400">[ID:{{ gpu.id }}]</span></span>
+                        </div>
+
+                        <!-- Grid for GPU Bars -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Core Util -->
+                            <div>
+                                <div class="flex justify-between mb-1 text-xs">
+                                    <span>核心</span>
+                                    <span>{{ gpu.gpu_util }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="h-2 rounded-full transition-all duration-500" 
+                                         :class="getBarColor(gpu.gpu_util)"
+                                         :style="{ width: gpu.gpu_util + '%' }"></div>
+                                </div>
+                            </div>
+
+                            <!-- Memory Util -->
+                            <div>
+                                <div class="flex justify-between mb-1 text-xs">
+                                    <span>显存</span>
+                                    <span>{{ gpu.mem_percent }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="h-2 rounded-full transition-all duration-500" 
+                                         :class="getBarColor(gpu.mem_percent)"
+                                         :style="{ width: gpu.mem_percent + '%' }"></div>
+                                </div>
+                                <div class="text-[10px] text-gray-400 text-right mt-0.5">{{ gpu.mem_used }} / {{ gpu.mem_total }}</div>
+                            </div>
+
+                            <!-- Power Util -->
+                            <div>
+                                <div class="flex justify-between mb-1 text-xs">
+                                    <span>功率</span>
+                                    <span>{{ gpu.power_usage }}W</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="h-2 rounded-full transition-all duration-500" 
+                                         :class="getBarColor((gpu.power_usage / gpu.power_limit) * 100)"
+                                         :style="{ width: (gpu.power_usage / gpu.power_limit) * 100 + '%' }"></div>
+                                </div>
+                                <div class="text-[10px] text-gray-400 text-right mt-0.5">Limit: {{ gpu.power_limit }}W</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div v-else class="card p-4 bg-yellow-50 text-yellow-700 border border-yellow-200">
+                    <i class="fas fa-exclamation-triangle mr-2"></i> 未检测到 GPU
+                </div>
+
+                <!-- CPU & Memory Card -->
+                <div class="card p-4">
+                    <h3 class="font-bold text-gray-600 mb-3 flex items-center gap-2">
+                        <i class="fas fa-microchip"></i> 核心资源
+                    </h3>
+                    
+                    <!-- CPU -->
+                    <div class="mb-3">
+                        <div class="flex justify-between mb-1">
+                            <span class="font-medium">CPU</span>
+                            <span class="font-bold">{{ stats.system?.cpu }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="h-3 rounded-full transition-all duration-500" 
+                                 :class="getBarColor(stats.system?.cpu)"
+                                 :style="{ width: stats.system?.cpu + '%' }"></div>
+                        </div>
+                    </div>
+
+                    <!-- Memory -->
+                    <div class="mb-3">
+                        <div class="flex justify-between mb-1">
+                            <span class="font-medium">内存</span>
+                            <span class="text-xs text-gray-500">{{ stats.system?.memory?.used }} / {{ stats.system?.memory?.total }} ({{ stats.system?.memory?.percent }}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="h-3 rounded-full transition-all duration-500" 
+                                 :class="getBarColor(stats.system?.memory?.percent)"
+                                 :style="{ width: stats.system?.memory?.percent + '%' }"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Disk Resources Card -->
+                <div class="card p-4">
+                    <h3 class="font-bold text-gray-600 mb-3 flex items-center gap-2">
+                        <i class="fas fa-hdd"></i> 硬盘存储
+                    </h3>
+                    <!-- Disks (Loop) -->
+                    <div v-for="disk in stats.system?.disk" :key="disk.mountpoint" class="mb-2">
+                        <div class="flex justify-between mb-1">
+                            <span class="font-medium truncate w-1/3" :title="disk.mountpoint">{{ disk.mountpoint }}</span>
+                            <span class="text-xs text-gray-500">{{ disk.used }} / {{ disk.total }} ({{ disk.percent }}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="h-3 rounded-full transition-all duration-500" 
+                                 :class="getBarColor(disk.percent)"
+                                 :style="{ width: disk.percent + '%' }"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Network & Charts -->
+            <div class="lg:col-span-5 space-y-4">
+                
+                <!-- Network Card -->
+                <div class="card p-4">
+                    <h3 class="font-bold text-gray-600 mb-3 flex items-center gap-2">
+                        <i class="fas fa-network-wired"></i> 网络监控
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="text-center p-2 bg-green-50 rounded">
+                            <div class="text-xs text-gray-500">下行</div>
+                            <div class="text-lg font-bold text-green-600">{{ stats.system?.network?.speed_recv }}</div>
+                            <div class="text-xs text-gray-400">总: {{ stats.system?.network?.bytes_recv }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-blue-50 rounded">
+                            <div class="text-xs text-gray-500">上行</div>
+                            <div class="text-lg font-bold text-blue-600">{{ stats.system?.network?.speed_sent }}</div>
+                            <div class="text-xs text-gray-400">总: {{ stats.system?.network?.bytes_sent }}</div>
+                        </div>
+                    </div>
+                    <!-- Network Chart -->
+                    <div id="netChart" style="width: 100%; height: 150px;"></div>
+                </div>
+
+                <!-- History Charts -->
+                <div class="card p-4">
+                    <h3 class="font-bold text-gray-600 mb-2 text-xs">CPU & 内存 趋势</h3>
+                    <div id="cpuChart" style="width: 100%; height: 150px;"></div>
+                </div>
+
+                <div class="card p-4" v-if="stats.gpus && stats.gpus.length > 0">
+                    <h3 class="font-bold text-gray-600 mb-2 text-xs">GPU 利用率 趋势</h3>
+                    <div id="gpuChart" style="width: 100%; height: 150px;"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
