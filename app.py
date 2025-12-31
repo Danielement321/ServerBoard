@@ -102,9 +102,24 @@ def get_gpu_stats():
             
             temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
             
+            # Get processes and users
+            users = set()
+            try:
+                processes = pynvml.nvmlDeviceGetComputeRunningProcesses(handle) + \
+                            pynvml.nvmlDeviceGetGraphicsRunningProcesses(handle)
+                for p in processes:
+                    try:
+                        process = psutil.Process(p.pid)
+                        users.add(process.username())
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+            except Exception as e:
+                print(f"Error getting GPU processes: {e}")
+
             gpus.append({
                 "id": i,
                 "name": name,
+                "users": list(users),
                 "gpu_util": utilization.gpu,
                 "mem_util": utilization.memory, # This is bandwidth utilization in some contexts, but nvmlDeviceGetUtilizationRates returns % of time accessing memory
                 "mem_total": get_size(memory.total),

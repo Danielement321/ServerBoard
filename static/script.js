@@ -4,10 +4,34 @@ createApp({
     setup() {
         const stats = ref({});
         const connected = ref(false);
+        const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');
         let ws = null;
         let cpuChart = null;
         let gpuChart = null;
         let netChart = null;
+
+        const getThemeTextColor = () => isDarkMode.value ? '#ccc' : '#333';
+
+        const toggleDarkMode = () => {
+            isDarkMode.value = !isDarkMode.value;
+            localStorage.setItem('darkMode', isDarkMode.value);
+            if (isDarkMode.value) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            
+            const textColor = getThemeTextColor();
+            const opts = { legend: { textStyle: { color: textColor } } };
+            
+            if (cpuChart) cpuChart.setOption(opts);
+            if (gpuChart) gpuChart.setOption(opts);
+            if (netChart) netChart.setOption(opts);
+        };
+
+        if (isDarkMode.value) {
+            document.documentElement.classList.add('dark');
+        }
         
         // Chart Data Arrays
         const maxDataPoints = 60; // 1 minute history
@@ -31,10 +55,10 @@ createApp({
             cpuChart = echarts.init(el);
             const option = {
                 tooltip: { trigger: 'axis' },
-                legend: { data: ['CPU', 'Memory'], textStyle: { fontSize: 10 }, top: 0 },
+                legend: { data: ['CPU', 'Memory'], textStyle: { fontSize: 10, color: getThemeTextColor() }, top: 0 },
                 grid: { left: '3%', right: '4%', bottom: '3%', top: '20%', containLabel: true },
                 xAxis: { type: 'category', boundaryGap: false, data: [], show: false },
-                yAxis: { type: 'value', max: 100, min: 0, splitLine: { show: false } },
+                yAxis: { type: 'value', max: 100, min: 0, splitLine: { show: false }, axisLabel: { color: getThemeTextColor() } },
                 series: [
                     { name: 'CPU', type: 'line', smooth: true, showSymbol: false, data: [], areaStyle: { opacity: 0.1 }, itemStyle: { color: '#3b82f6' } },
                     { name: 'Memory', type: 'line', smooth: true, showSymbol: false, data: [], itemStyle: { color: '#a855f7' } }
@@ -50,10 +74,10 @@ createApp({
             gpuChart = echarts.init(el);
             const option = {
                 tooltip: { trigger: 'axis' },
-                legend: { data: [], textStyle: { fontSize: 10 }, top: 0 },
+                legend: { data: [], textStyle: { fontSize: 10, color: getThemeTextColor() }, top: 0 },
                 grid: { left: '3%', right: '4%', bottom: '3%', top: '20%', containLabel: true },
                 xAxis: { type: 'category', boundaryGap: false, data: [], show: false },
-                yAxis: { type: 'value', max: 100, min: 0, splitLine: { show: false } },
+                yAxis: { type: 'value', max: 100, min: 0, splitLine: { show: false }, axisLabel: { color: getThemeTextColor() } },
                 series: []
             };
             gpuChart.setOption(option);
@@ -80,10 +104,10 @@ createApp({
                         return result;
                     }
                 },
-                legend: { data: ['Down', 'Up'], textStyle: { fontSize: 10 }, top: 0 },
+                legend: { data: ['Down', 'Up'], textStyle: { fontSize: 10, color: getThemeTextColor() }, top: 0 },
                 grid: { left: '3%', right: '4%', bottom: '3%', top: '20%', containLabel: true },
                 xAxis: { type: 'category', boundaryGap: false, data: [], show: false },
-                yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { formatter: (value) => {
+                yAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: getThemeTextColor(), formatter: (value) => {
                     if (value > 1024 * 1024) return (value / 1024 / 1024).toFixed(0) + 'M';
                     if (value > 1024) return (value / 1024).toFixed(0) + 'K';
                     return value;
@@ -229,6 +253,8 @@ createApp({
         return {
             stats,
             connected,
+            isDarkMode,
+            toggleDarkMode,
             getBarColor
         };
     }

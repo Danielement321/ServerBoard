@@ -1,14 +1,8 @@
 # Server Resource Monitor
 
 这是一个轻量级的服务器资源监控面板，专为 GPU型服务器 设计，重点监控 GPU 性能。
+
 本项目完全基于VibeCoding完成;)
-
-## 功能
-
-- **实时监控**：CPU、内存、硬盘、网络。
-- **GPU 监控**：利用率、显存、功率、温度 (支持 NVIDIA GPU)。
-- **可视化**：基于 Web 的仪表盘，包含历史趋势图。
-- **轻量化**：基于 FastAPI 和 WebSocket，资源占用极低。
 
 ## 安装
 
@@ -26,22 +20,6 @@ pip install -r requirements.txt
 ```bash
 bash run.sh 8000
 ```
-
-### 前台运行 (测试用)
-
-```bash
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
-
-### 后台运行 (推荐)
-
-使用 `nohup`：
-
-```bash
-nohup uvicorn app:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
-```
-
-或者使用 `systemd` (见下文)。
 
 ## 访问
 
