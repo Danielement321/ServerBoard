@@ -42,6 +42,95 @@ createApp({
         const netRecvData = [];
         const gpuData = {}; // Map of gpu_id -> array
 
+        // Monitor Vars
+        const gpuMonitors = ref(JSON.parse(localStorage.getItem('gpuMonitors') || '{}'));
+        const showMonitorModal = ref(false);
+        const currentEditingGpu = ref(null);
+        const monitorForm = ref({ enabled: false, threshold: 10, duration: 60 });
+        const pendingAlerts = ref({});
+
+        const isMonitorEnabled = (id) => gpuMonitors.value[id]?.enabled;
+
+        const openMonitorModal = (gpu) => {
+            currentEditingGpu.value = gpu;
+            const settings = gpuMonitors.value[gpu.id] || { enabled: false, threshold: 10, duration: 60 };
+            monitorForm.value = { ...settings };
+            showMonitorModal.value = true;
+        };
+
+        const closeMonitorModal = () => {
+            showMonitorModal.value = false;
+            currentEditingGpu.value = null;
+        };
+
+        const saveMonitorSettings = () => {
+            if (currentEditingGpu.value) {
+                gpuMonitors.value[currentEditingGpu.value.id] = { ...monitorForm.value };
+                localStorage.setItem('gpuMonitors', JSON.stringify(gpuMonitors.value));
+                
+                if (monitorForm.value.enabled && Notification.permission !== 'granted') {
+                    Notification.requestPermission();
+                }
+            }
+            closeMonitorModal();
+        };
+
+        const playBeep = () => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = 880;
+                gain.gain.value = 0.1;
+                osc.start();
+                setTimeout(() => { osc.stop(); ctx.close(); }, 500);
+            } catch (e) {
+                console.error("Audio error", e);
+            }
+        };
+
+        const checkGpuAlerts = (data) => {
+            if (!data.gpus) return;
+            data.gpus.forEach(gpu => {
+                const settings = gpuMonitors.value[gpu.id];
+                if (settings && settings.enabled) {
+                    if (gpu.mem_percent <= settings.threshold) {
+                        if (!pendingAlerts.value[gpu.id]) {
+                            pendingAlerts.value[gpu.id] = Date.now();
+                        } else {
+                            const elapsed = (Date.now() - pendingAlerts.value[gpu.id]) / 1000;
+                            if (elapsed >= settings.duration) {
+                                // Trigger Alert
+                                playBeep();
+                                if (Notification.permission === 'granted') {
+                                    new Notification(`GPU 空载通知`, {
+                                        body: `${gpu.name} [ID:${gpu.id}] 显存使用率低 (${gpu.mem_percent}%) 已持续 ${Math.floor(elapsed)}秒`,
+                                    });
+                                }
+                                
+                                // Auto turn off as requested
+                                settings.enabled = false;
+                                gpuMonitors.value[gpu.id] = settings;
+                                localStorage.setItem('gpuMonitors', JSON.stringify(gpuMonitors.value));
+                                delete pendingAlerts.value[gpu.id];
+                            }
+                        }
+                    } else {
+                        if (pendingAlerts.value[gpu.id]) {
+                            delete pendingAlerts.value[gpu.id];
+                        }
+                    }
+                } else {
+                   if (pendingAlerts.value[gpu.id]) delete pendingAlerts.value[gpu.id];
+                }
+            });
+        };
+
         const getBarColor = (percent) => {
             if (percent >= 90) return 'bg-red-500';
             if (percent >= 70) return 'bg-orange-500';
@@ -218,6 +307,8 @@ createApp({
                 const data = JSON.parse(event.data);
                 stats.value = data;
                 
+                checkGpuAlerts(data);
+
                 if (!cpuChart) {
                     nextTick(() => {
                         initCpuChart();
@@ -255,7 +346,13 @@ createApp({
             connected,
             isDarkMode,
             toggleDarkMode,
-            getBarColor
+            getBarColor,
+            showMonitorModal,
+            monitorForm,
+            openMonitorModal,
+            closeMonitorModal,
+            saveMonitorSettings,
+            isMonitorEnabled
         };
     }
 }).mount('#app');
