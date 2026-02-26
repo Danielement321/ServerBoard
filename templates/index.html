@@ -53,11 +53,19 @@
                         <div class="flex justify-between items-center mb-2">
                             <div class="flex items-center gap-2">
                                 <span class="font-bold text-sm">{{ gpu.name }} <span class="text-xs text-gray-400">[ID:{{ gpu.id }}]</span></span>
-                                <button @click="openMonitorModal(gpu)" 
-                                        class="text-xs px-2 py-0.5 rounded transition-colors"
-                                        :class="isMonitorEnabled(gpu.id) ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400'"
-                                        title="配置空载通知">
+                                <!-- 快捷开关 (铃铛) -->
+                                <button @click="toggleMonitor(gpu)" 
+                                        class="text-xs px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+                                        :class="isMonitorEnabled(gpu.id) ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-500'"
+                                        :title="isMonitorEnabled(gpu.id) ? '点击关闭空载通知' : '点击开启空载通知'">
                                     <i class="fas" :class="isMonitorEnabled(gpu.id) ? 'fa-bell' : 'fa-bell-slash'"></i>
+                                    <span v-if="isMonitorEnabled(gpu.id)" class="text-[10px]">{{ getMonitorThreshold(gpu.id) }}%</span>
+                                </button>
+                                <!-- 设置按钮 (齿轮) -->
+                                <button @click="openMonitorModal(gpu)" 
+                                        class="text-xs px-1.5 py-0.5 rounded transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-500"
+                                        title="配置通知阈值">
+                                    <i class="fas fa-cog"></i>
                                 </button>
                             </div>
                             <div v-if="gpu.users && gpu.users.length > 0" class="flex gap-1">

@@ -50,6 +50,20 @@ createApp({
         const pendingAlerts = ref({});
 
         const isMonitorEnabled = (id) => gpuMonitors.value[id]?.enabled;
+        const getMonitorThreshold = (id) => gpuMonitors.value[id]?.threshold || 10;
+
+        const toggleMonitor = (gpu) => {
+             const settings = gpuMonitors.value[gpu.id] || { enabled: false, threshold: 10, duration: 60 };
+             settings.enabled = !settings.enabled;
+             
+             // Request permission if enabling
+             if (settings.enabled && Notification.permission !== 'granted') {
+                 Notification.requestPermission();
+             }
+
+             gpuMonitors.value[gpu.id] = settings;
+             localStorage.setItem('gpuMonitors', JSON.stringify(gpuMonitors.value));
+        };
 
         const openMonitorModal = (gpu) => {
             currentEditingGpu.value = gpu;
@@ -352,7 +366,9 @@ createApp({
             openMonitorModal,
             closeMonitorModal,
             saveMonitorSettings,
-            isMonitorEnabled
+            isMonitorEnabled,
+            toggleMonitor,
+            getMonitorThreshold
         };
     }
 }).mount('#app');
